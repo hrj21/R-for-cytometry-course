@@ -1,0 +1,19 @@
+#name: Name
+#FCS_File: NA
+name	FCS_File
+Mock_01_A.fcs	Mock_01_A.fcs	Mock_01_A.fcs
+Mock_02_A.fcs	Mock_02_A.fcs	Mock_02_A.fcs
+Mock_03_A.fcs	Mock_03_A.fcs	Mock_03_A.fcs
+Mock_04_A.fcs	Mock_04_A.fcs	Mock_04_A.fcs
+Mock_05_B.fcs	Mock_05_B.fcs	Mock_05_B.fcs
+Mock_06_B.fcs	Mock_06_B.fcs	Mock_06_B.fcs
+Mock_07_B.fcs	Mock_07_B.fcs	Mock_07_B.fcs
+Mock_08_B.fcs	Mock_08_B.fcs	Mock_08_B.fcs
+Virus_01_A.fcs	Virus_01_A.fcs	Virus_01_A.fcs
+Virus_02_A.fcs	Virus_02_A.fcs	Virus_02_A.fcs
+Virus_03_A.fcs	Virus_03_A.fcs	Virus_03_A.fcs
+Virus_04_A.fcs	Virus_04_A.fcs	Virus_04_A.fcs
+Virus_05_B.fcs	Virus_05_B.fcs	Virus_05_B.fcs
+Virus_06_B.fcs	Virus_06_B.fcs	Virus_06_B.fcs
+Virus_07_B.fcs	Virus_07_B.fcs	Virus_07_B.fcs
+Virus_08_B.fcs	Virus_08_B.fcs	Virus_08_B.fcs
