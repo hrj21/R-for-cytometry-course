@@ -26,12 +26,6 @@ ggplot(penguins, aes(x = bill_length_mm, y = bill_depth_mm, col = species)) +
 ggplot(penguins, aes(x = bill_length_mm, 
                      y = bill_depth_mm, 
                      col = species, 
-                     size = flipper_length_mm)) +
-  geom_point()
-
-ggplot(penguins, aes(x = bill_length_mm, 
-                     y = bill_depth_mm, 
-                     col = species, 
                      size = body_mass_g)) +
   geom_point()
 

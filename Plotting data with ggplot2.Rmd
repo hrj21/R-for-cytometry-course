@@ -1,0 +1,187 @@
+---
+title: "R for cytometry course"
+subtitle: "Part 2: Plotting data with ggplot2"
+author: "Hefin Rhys"
+date: "`r Sys.Date()`"
+output:
+  prettydoc::html_pretty:
+    toc: true
+    toc_depth: 3  
+    number_sections: true
+    theme: cayman
+    highlight: github
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning=FALSE)
+```
+
+# What is ggplot2?
+
+R is great for creating plots, and comes with its own base functions for doing so. But creating and customising complex plots with base R can be a little cumbersome. Instead, you can achieve beautiful, publication-ready plots much faster and more easily using the *ggplot2* plotting package.
+
+The "gg" in ggplot2 stands for "grammar of graphics", which is a school of thought that says any plot can be constructed by adding sequential layers of elements, such as axes, dots and lines. The ggplot2 package makes constructing plots in this way very easy.
+
+# Installing and loading the packages
+
+We'll start by installing the ggplot2 package from CRAN, and also the *palmerpenguins* package, that comes with some cute example data we will plot.
+
+```{r install_packs, message=FALSE, warning=FALSE}
+#install.packages("ggplot2")
+#install.packages("palmerpenguins")
+library(ggplot2)
+library(palmerpenguins)
+```
+
+# Loading package datasets
+
+R comes with a large variety of example datasets you can freely load and experiment with. Executing `data()` will open a new tab in RStudio listing all the datasets available in base R and the loaded packages. You can search for datasets in a particular package by using the `package` argument. To load a dataset, simply pass it as the argument to the `data()` function, and it will be loaded into your environment. Below, we load the *penguins* dataset.
+
+> Note that the penguins object is a *tibble* not a data.frame. A tibble can largely be treated the same as a data.frame, but it is more pleasing and easier to read when printed.
+
+```{r loading_dataset}
+data()
+data(package = "palmerpenguins")
+data(penguins)
+penguins
+str(penguins)
+```
+
+# Plotting with base R
+
+We're not going to spend time learning to plot in base R, but just to give you a flavour, here are some examples. Just calling `plot()` on a data.frame will plot each variable against every other variable. To create a scatter plot, we must supply vectors representing the x and y axes, and (optionally) a vector for the colours.
+
+```{r base_plot}
+plot(penguins)
+plot(penguins$bill_length_mm, penguins$bill_depth_mm, col = penguins$species)
+```
+
+# Plotting with ggplot2
+
+When creating a plot with ggplot2, we always start with the `ggplot()` function. The first argument is the data, the second argument is another function, `aes()`. This function allows us to specify the plot's *aesthetic mappings*. 
+
+An aesthetic mapping is the link between a graphical aspect of the plot (such as the x or y coordinate, and the colour of the dots) and a variable in the data. The example below maps the bill_length_mm variable to the x aesthetic, maps the bill_depth_mm variable to the y aesthetic, and maps the species variable to the col (colour) aesthetic.
+
+This function creates the plotting space and axes, but in order to see our data visualised we must add a geom (short for geometric object) layer. To add dots or points, we add a `geom_point()` layer to the plot, using the `+` symbol.
+
+```{r ggplot}
+ggplot(penguins, aes(x = bill_length_mm, y = bill_depth_mm, col = species)) +
+  geom_point()
+```
+
+## Exploring additional aesthetic mappings
+
+We've already seen we can map our variables to the x, y, and col aesthetics, but we can map variables to other aspects of our plots. You can find out what aesthetic mappings a geom can/needs to use by using the help system (e.g. `?geom_point()`).
+
+Let's draw the same plot as above, but this time map the size of each dot to the body_mass_g variable.
+
+> Note thet ggplot2 takes care of the legends for you. Base R doesn't do this.
+
+```{r size_aes}
+ggplot(penguins, aes(x = bill_length_mm, 
+                     y = bill_depth_mm, 
+                     col = species, 
+                     size = body_mass_g)) +
+  geom_point()
+```
+
+We could also indicate the sex of the penguin using different shapes. We can change the size of the points by using the `size` argument.
+
+```{r shape_aes}
+ggplot(penguins, aes(x = bill_length_mm, 
+                     y = bill_depth_mm, 
+                     col = species, 
+                     shape = sex)) +
+  geom_point(size = 3)
+```
+
+There are others, but these are the main ones you'll need for the majority of plots.
+
+## Exploring additional geoms for scatter plots
+
+ggplot2 has some other geoms that are useful for scatter plots. The `geom_density_2d()` geom is useful for highlighting regions of high density (especially when there are many data). The `stat_ellipse()` stat (a geom that shows some kind of statistical summary of the data) shows a confidence ellipse (95% by default) around groups of observations.
+
+> Note that you can save a ggplot object, and then add geoms to it later!
+
+```{r}
+p1 <- ggplot(penguins, aes(x = bill_length_mm, y = bill_depth_mm, col = species))
+
+p1 + geom_point() 
+p1 + geom_point() + geom_density_2d()
+p1 + geom_point() + stat_ellipse()
+```
+
+## Line plots
+
+When wanting to represent how a quantity changes over time, we will often employ line graphs. As our penguins data doesn't lend itself to this kind of plotting, we're going to load a new dataset, containing repeated circumference measurements made on 5 orange trees many years apart.
+
+```{r load_orange}
+data(Orange)
+Orange
+```
+
+Once again, we start with our `ggplot()` call, supplying Orange as the data, and using the `aes()` function to map age to the x axis, circumference to the y axis, and I use the `group` aesthetic to tell ggplot2 I want a separate line for each Tree. If I want a straight line to connect each observation, I can use the `geom_line()` geom, but if I want a smooth trend line across all the values, I can use the `geom_smooth()` geom.
+
+```{r line_plots}
+p2 <- ggplot(Orange, aes(age, circumference, group = Tree))
+p2 + geom_line() + geom_point()
+p2 + geom_smooth(se = FALSE) 
+```
+
+If, instead, we want least squares linear regression lines, we can set the argument `method = lm` (for linear model) and we will get a separate line per group or colour.
+
+```{r lm}
+ggplot(penguins, aes(bill_length_mm, bill_depth_mm, col = species)) +
+  geom_point() +
+  geom_smooth(method = "lm")
+```
+
+## Bar, boxplot, and violin plots
+
+When plotting a categorical variable against a continuous one, we often make use of bar plots, boxplots, and violin plots.
+
+Let's start by creating a bar chart to show the frequency of each penguin species. By default `geom_bar()` will assume it is being used to display frequencies, so we only need to specify the x aesthetic mapping.
+
+> Note we can set the fill and colour of geoms manually. The fill is the internal colour, and the col is the colour of the border. The size argument for bars specifies the width of the border.
+
+```{r geom_bar}
+ggplot(penguins, aes(species)) + 
+    geom_bar(fill = "lightblue", col = "black", size = 1)
+```
+
+Let's create a ggplot object so we can experiment with a few things.
+
+```{r p3
+p3 <- ggplot(penguins, aes(species, bill_length_mm))
+```
+
+Often, we want our bars to indicate a summary statistic of a group, like a mean or median. To do this, we have to tell ggplot we're plotting a summary statistic using the argument `stat = summary`, and then use the `fun` argument to specify what summary statistic we wish to plot.
+
+```{r mean_bars}
+p3 + geom_bar(stat = "summary", 
+              fun = "mean", 
+              fill = "lightblue", 
+              col = "black", 
+              size = 1)
+```
+
+It's bad practice to show only summary statistics, and showing the raw points along with the mean bars is better.
+
+> Note that to avoid the points sitting on top of each other, we can add a small amount of "jitter" to help us see their distribution.
+
+> Also note that the order of the geoms is important! Try placing the geom_point layer before the geom_bar layer and see what happens!
+
+```{r jitter}
+p3 + geom_bar(stat = "summary", 
+              fun = "mean", 
+              fill = "lightblue", 
+              col = "black", 
+              size = 1) +
+    geom_point(position = position_jitter(0.2))
+```
+
+
+
+
+
+

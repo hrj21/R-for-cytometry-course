@@ -113,6 +113,33 @@ mySqrt
 rnorm(100, mean = 5)
 hist(rnorm(100, mean = 5))
 
+# Creating our own functions ----------------------------------------------
+remainder <- function(x, y) {
+    x %% y # MODULO (REMAINDER AFTER DIVISION)
+}
+
+remainder(56, 3)
+
+remainder <- function(x, y, verbose = FALSE) {
+    remainder <- x %% y
+    if(verbose == TRUE) {
+        paste("The remainder of", x, "/", y, "is", remainder)
+    } else {
+        remainder
+    }
+}
+
+remainder(56, 3)
+remainder(x = 56, y = 3, verbose = TRUE)
+
+# Applying a function to each element of a vector/list --------------------
+list_of_vecs <- list(a = 1:5, b = 1:10, c = 5:10)
+lapply(list_of_vecs, mean)
+
+lapply(list_of_vecs, function(x) {
+    sum(x / 2)
+})
+
 # Data frames -------------------------------------------------------------
 id <- 1:200
 group <- c(rep("Vehicle", 100), rep("Drug", 100))
