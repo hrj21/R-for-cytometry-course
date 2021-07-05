@@ -121,4 +121,4 @@ p5 +
 
 # Saving plots ------------------------------------------------------------
 dir.create("plots")
-ggsave("Plots/Graph 1.pdf", width = 6, height = 6, units = "in")
+ggsave("plots/Graph 1.pdf", width = 6, height = 6, units = "in")

@@ -31,6 +31,7 @@ to_asinh <- names(cell_dat)[1:8]
 to_asinh
 
 cell_dat <- do.asinh(cell_dat, to_asinh, cofactor = 500)
+# cell_dat <- do.logicle(cell_dat, to_asinh)
 transformed_cols <- paste0(to_asinh, "_asinh")
 
 # Plot channels -----------------------------------------------------------
@@ -63,7 +64,7 @@ cytonorm <- prep.cytonorm(dat = reference_dat,
                           batch.col = "Batch",
                           sample.col = "Sample") 
 
-cytonorm_sub <- do.subsample(cytonorm$dt, 10000)
+cytonorm_sub <- do.subsample(cytonorm$dt, 1e4)
 cytonorm_sub <- run.umap(cytonorm_sub, use.cols = transformed_cols)
 
 make.colour.plot(cytonorm_sub, 
@@ -87,7 +88,7 @@ cell_dat <- run.cytonorm(dat = cell_dat, model = cytonorm, batch.col = "Batch")
 aligned_cols <- paste0(transformed_cols, '_aligned')
 
 reference_dat <- do.filter(cell_dat, "Sample", reference_files)
-reference_sub <- do.subsample(reference_dat, 10000)
+reference_sub <- do.subsample(reference_dat, 1e4)
 reference_sub <- run.umap(reference_sub, use.cols = aligned_cols)
 
 make.colour.plot(reference_sub, 'UMAP_X', 'UMAP_Y', "Batch", 'factor', path = "plots")
@@ -100,7 +101,7 @@ aligned_cols
 cell_dat <- run.flowsom(cell_dat, aligned_cols, meta.k = 15)
 
 # Dimension reduction -----------------------------------------------------
-cell_sub <- do.subsample(cell_dat, targets = 2e4)
+cell_sub <- do.subsample(cell_dat, targets = 1e4)
 cell_sub <- run.umap(cell_sub, aligned_cols)
 
 # Plot results ------------------------------------------------------------
@@ -124,6 +125,7 @@ make.multi.plot(cell_sub,
                 plot.by = "FlowSOM_metacluster", 
                 divide.by = "Group", 
                 col.type = "factor",
+                dot.size = 0.5,
                 path = "plots")
 
 # Expression heatmap -----------------------------------------------------
@@ -155,6 +157,12 @@ cell_dat <- do.add.cols(cell_dat,
                         add.dat = annots, 
                         add.by = "Values")
 cell_dat
+
+cell_sub <- do.add.cols(cell_sub, 
+                        base.col = "FlowSOM_metacluster", 
+                        add.dat = annots, 
+                        add.by = "Values")
+cell_sub
 
 make.colour.plot(cell_sub,
                  "UMAP_X",

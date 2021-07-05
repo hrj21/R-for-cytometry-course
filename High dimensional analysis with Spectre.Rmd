@@ -1,0 +1,214 @@
+---
+title: "R for cytometry course"
+subtitle: "Part 3: High dimensional analysis with Spectre"
+author: "Hefin Rhys"
+date: "`r Sys.Date()`"
+output:
+  prettydoc::html_pretty:
+    toc: true
+    toc_depth: 3  
+    number_sections: true
+    theme: cayman
+    highlight: github
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning=FALSE)
+```
+
+# What is Spectre?
+
+Spectre is an R package that creates a simple and unified approach to high dimensional analysis of cytometry data. It provides us with tools to perform parameter transformation, batch alignment, dimension reduction, clustering, and differential expression and abundance analysis. 
+
+> Note: Spectre assumes your data have already been cleaned of debris, dead cells, and doublets. Most people will find it easiest to do this using software like FlowJo and exporting cleaned .fcs or .csv files. We will cover manual gating of cytometry data in R in Part 4 of this course.
+
+# Installing and loading the packages
+
+We'll start by installing and loading the Spectre package. We could install this from CRAN (using `install.packages("Spectre")`), but we can get the latest version by installing it directly from GitHub. We also install the *EnhancedVolcano* package from Bioconductor.
+
+> Remember that `package::function()` is a way of using a function from an installed package without having to load the whole package.
+
+```{r packages}
+#install.packages(c("devtools", "BiocManager"))
+
+#devtools::install_github("immunedynamics/spectre")
+#BiocManager::install("EnhancedVolcano")
+
+library(Spectre)
+```
+
+The Spectre package itself relies on a number of other packages to function properly. To check you have these installed, execute `package.check()` and see if it gives an error. If it does, simply install the missing packages the error mentions. 
+
+If all packages are installed, Spectre gives us the convenience function `package.load()` to load all its required packages, rather than us having to load each one individually with `library()`.
+
+```{r package_check, message=FALSE, warning=FALSE}
+package.check()
+package.load()
+```
+
+# Reading in data
+
+For this tutorial, you should have the 16 example .fcs files in the folder `data/clean` from your working/project directory. You can check this using the `list.files()` function as below. You should see the same output as shown here.
+
+```{r list_files}
+list.files("data/clean", pattern = "fcs")
+```
+
+## The `read.files()` function
+
+To read the data into R, we use the `read.files()` function, giving the file location, the file type (can be ".fcs" or ".csv"), and asking the function to create a column indicating which file each event belongs to. This creates a list of *data.tables*. 
+
+> A data.table is an R data structure similar to a data.frame and a tibble, but is much faster to work with for large datasets. There are some differences in how you work with data.tables, but they still represent tabular data with events on the rows and parameters on the columns.
+
+```{r reading_fcs}
+data_list <- read.files(file.loc = "data/clean", 
+                        file.type = ".fcs", 
+                        do.embed.file.names = TRUE)
+```
+
+## Quick summary QC of the data
+
+As a sanity check, we can use the `do.list.smmary()` function to print out some summary information about the data we just read in. This returns a list with three elements:
+
+- the first element is a data.frame showing the column names for each file we read in. This allows us to confirm the files we read in are all labeled the same way (with the same fluorophores and antigens)
+- the second element tells us the number of columns in each file. These should all be the same for files from the same experiment
+- the third element tells us the number of events in each file. These may vary between files, and allows us to visually check if any files have an unusually low event count.
+
+```{r do_list_summary}
+do.list.summary(data_list)
+```
+
+## Merging data into master data.table
+
+At present our data are stored as a list of data.tables, but it will be more convenient if we can merge these into a single master data.table. We can achieve this using the `do.merge.files()` function.
+
+```{r}
+cell_dat <- do.merge.files(dat = data_list)
+```
+
+# Transforming channel values
+
+If your data were exported from FlowJo as *FCS3* or as *CSV - Scale values*, then all the parameters will be linear. In order for our dimension reduction and clustering algorithms to provide meaningful insights, we need to transform our fluorescence/metal parameters. Spectre provides two transformations: asinh and logicle. The asinh (inverse hyperbolic sin) transformation is almost exclusively used for mass cytometry data, while either the asinh or the logicle transformations can be applied to fluorescence cytometry data. You can experiment with different transformations, but for today we will use asinh.
+ 
+## Selecting the transformation and cofactors
+First, I start by creating a vector of column names I wish to transform, and then use the `do.asinh()` function to create new variables that have been transformed. The `cofactor` argument is very important here and depends on your data source. If you are working with mass cytometry data then a cofactor of 5 is used ubiquitously. If you are working with fluorescence cytometry data, then cofactors in the range 150 to 250 are more common. You should select a transformation that best resolves "real" clusters of data, without generating artificial clusters around zero.
+
+> Note that the function `do.logicle()` will perform a logicle transformation and will automatically select the cofactors for each channel independently.
+
+```{r vars_to_asinh}
+names(cell_dat)
+to_asinh <- names(cell_dat)[1:8]
+to_asinh
+
+cell_dat <- do.asinh(cell_dat, to_asinh, cofactor = 500) # do.logicle()
+transformed_cols <- paste0(to_asinh, "_asinh")
+```
+
+## Visualizing the transformation
+
+To check our choice of transformation is suitable, it's a good idea to plot each transformed channel. I start by using the `do.subsample()` function to randomly sample 10,000 events from the data (just to speed things up). Next, I use `lapply()` to apply a function to every element in our transformed_cols vector. The function I apply is an anonymous function that calls `make.colour.plot()` on the data, iterating over each element of the transformed_cols vector as the x variable, and fixing "AF700_CD45_asinh" as the y variable.
+
+> Note: by default, the `make.colour.plot()` function colours the points according to their density, but we could also supply the name of another variable like an antigen, or a grouping variable.
+
+```{r transform_vis}
+cell_sub <- do.subsample(cell_dat, 1e4)
+
+lapply(transformed_cols, function(x) {
+    make.colour.plot(cell_sub, 
+                     x, 
+                     "AF700_CD45_asinh",
+                     path = "plots",
+                     save.to.disk = TRUE)
+})
+```
+
+After inspecting each of the plots, we may wish to go back and change our transformation. This transformation looks fine, so we'll continue.
+
+# Adding sample metadata
+
+Often, we will have sample metadata we wish to include our analysis that couldn't read in as part of our .fcs files. This might include sample identifiers and grouping variables such as treatment, concentration, and time. It's easy to add this information to your data.table by manually creating a .csv file with the relevant information, and merging this with your event level data.
+
+In your data/clean/ directory, you should have the file "sample_details.csv" that contains the metadata for this example. If you open the file as a spreadsheet, you"ll see it contains the columns:
+
+- FileName
+- Sample
+- Group
+- Batch
+
+It doesn't need all of these, and could contain more, depending on what variables you want to use to annotate your samples (you could include donor age, for example). 
+
+Once we've read this .csv file we use the `do.add.cols()` function to add this information to our data.table. The first argument is the data we're annotating. The `base.col` argument selects the column in our data.table we will match against the metadata. The `add.dat` argument is the object containing the metadata, and the `add.by` argument is the column in our metadata that will be matched to the `base.col` of our data.table. The function adds the new metadata columns, then iterates over each event (row) in our data.table, finds the row of our metadata that matches the row's `base.col` value (usually the FileName column) and fills in the values of the new columns with the values for this row.
+
+In this example, this results in each event being given values for the new Sample variable (just a shorter alias for each sample), Group variable, and Batch variable. Later, this will allow us to perform batch normalisation, separately plot different treatment groups, and perform statistical inference on the differences between groups.
+
+```{r metadata}
+meta_dat <- read.csv("data/clean/sample_details.csv")
+meta_dat
+
+cell_dat <- do.add.cols(cell_dat, 
+                        base.col = "FileName", 
+                        add.dat = meta_dat, 
+                        add.by = "FileName")
+
+cell_dat
+```
+
+# Batch alignment
+
+If samples were not all stained and collected together, it's possible that batch effects exist in the data that contribute added noise. Preventing batch effects before they occur is the best strategy, but if samples must be collected at distant time points, then we can mitigate their impact by including a common sample to each round of staining and acquisition, and using the CytoNorm algorithm to align the batches based on these *batch control* files.
+
+## Preparing the batch control data
+
+We start by defining what files represent the batch controls (we should have as many files as there are batches), and using the `do.filter()` function to create a second data.table containing only the batch control data.
+
+```{r batch_samples}
+reference_files <- c("Mock_01_A", "Mock_05_B")
+reference_dat <- do.filter(cell_dat, "Sample", reference_files)
+```
+
+The cytonorm algorithm relies on first clustering the data so that each cluster can be aligned separately. The function `prep.cytonorm()` does this first step. We can set the number of metaclusters manually or let the algorithm decide for itself. The arguments `cellular.cols` and `cluster.cols` allow us to separately specify markers for alignment and for clustering, respectively. In this example, we use the same markers for both.
+
+```{r prep_cytonorm, message=FALSE, warning=FALSE}
+cytonorm <- prep.cytonorm(dat = reference_dat,
+                          cellular.cols = transformed_cols,
+                          cluster.cols = transformed_cols,
+                          batch.col = "Batch",
+                          sample.col = "Sample") 
+```
+
+Before we proceed, lets perform a UMAP embedding of the batch control files to see whether they do require alignment. As UMAP on a large dataset can take minutes to run, let's first randomly sample 10,000 events from the clustered control sample data (accessed using `cytonorm$dt`). We then run the UMAP using `run.umap()`, using the columns we defined earlier.
+
+```{r pre_align_umap, message=FALSE, warning=FALSE}
+cytonorm_sub <- do.subsample(cytonorm$dt, 1e4)
+cytonorm_sub <- run.umap(cytonorm_sub, use.cols = transformed_cols)
+```
+
+We use `make.colour.plot()` to plot the two UMAP dimensions against each other, colouring by the Sample variable (setting `col.type = "factor"` so it doesn't colour it as a continuous variable).
+
+```{r pre_aling_plot}
+make.colour.plot(cytonorm_sub, 
+                 "UMAP_X", 
+                 "UMAP_Y", 
+                 col.axis = "Sample", 
+                 col.type = "factor", 
+                 path = "plots")
+```
+
+As you can see, the two batch control files have an offset from each other and are not aligned. This suggests batch alignment is required. We can reproduce the plot above but this time colouring by FlowSOM metacluster. If we felt the data had been grossly over or under clustered, we could repeat the `prep.cytonorm()` step, setting the argument `meta.k` to whatever we like.
+
+```{r pre_align_clust}
+make.colour.plot(cytonorm_sub, 
+                 "UMAP_X", 
+                 "UMAP_Y", 
+                 col.axis = "prep.fsom.metacluster", 
+                 col.type = "factor", 
+                 path = "plots")
+```
+
+The clustering here doesn't need to uncover fine biological detail, just to separate the main cell types, so this is fine.
+
+
+
+

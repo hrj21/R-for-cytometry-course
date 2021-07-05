@@ -10,6 +10,8 @@ output:
     number_sections: true
     theme: cayman
     highlight: github
+editor_options: 
+  chunk_output_type: console
 ---
 
 ```{r setup, include=FALSE}
@@ -18,9 +20,9 @@ knitr::opts_chunk$set(echo = TRUE, warning=FALSE)
 
 # What is ggplot2?
 
-R is great for creating plots, and comes with its own base functions for doing so. But creating and customising complex plots with base R can be a little cumbersome. Instead, you can achieve beautiful, publication-ready plots much faster and more easily using the *ggplot2* plotting package.
+R is great for creating plots and comes with its own base functions for doing so. But creating and customising complex plots with base R can be a little cumbersome. Instead, you can achieve beautiful, publication-ready plots much faster and more easily using the *ggplot2* plotting package.
 
-The "gg" in ggplot2 stands for "grammar of graphics", which is a school of thought that says any plot can be constructed by adding sequential layers of elements, such as axes, dots and lines. The ggplot2 package makes constructing plots in this way very easy.
+The "gg" in ggplot2 stands for "grammar of graphics", which is a school of thought that says any plot can be constructed by adding sequential layers of elements, such as axes, dots, and lines. The ggplot2 package makes constructing plots in this way very easy.
 
 # Installing and loading the packages
 
@@ -60,7 +62,7 @@ plot(penguins$bill_length_mm, penguins$bill_depth_mm, col = penguins$species)
 
 When creating a plot with ggplot2, we always start with the `ggplot()` function. The first argument is the data, the second argument is another function, `aes()`. This function allows us to specify the plot's *aesthetic mappings*. 
 
-An aesthetic mapping is the link between a graphical aspect of the plot (such as the x or y coordinate, and the colour of the dots) and a variable in the data. The example below maps the bill_length_mm variable to the x aesthetic, maps the bill_depth_mm variable to the y aesthetic, and maps the species variable to the col (colour) aesthetic.
+An aesthetic mapping is the link between a graphical aspect of the plot (such as the x or y coordinate, or the colour of the dots) and a variable in the data. The example below maps the bill_length_mm variable to the x aesthetic, maps the bill_depth_mm variable to the y aesthetic, and maps the species variable to the col (colour) aesthetic.
 
 This function creates the plotting space and axes, but in order to see our data visualised we must add a geom (short for geometric object) layer. To add dots or points, we add a `geom_point()` layer to the plot, using the `+` symbol.
 
@@ -75,7 +77,7 @@ We've already seen we can map our variables to the x, y, and col aesthetics, but
 
 Let's draw the same plot as above, but this time map the size of each dot to the body_mass_g variable.
 
-> Note thet ggplot2 takes care of the legends for you. Base R doesn't do this.
+> Note that ggplot2 takes care of the legends for you. Base R doesn't do this.
 
 ```{r size_aes}
 ggplot(penguins, aes(x = bill_length_mm, 
@@ -101,7 +103,7 @@ There are others, but these are the main ones you'll need for the majority of pl
 
 ggplot2 has some other geoms that are useful for scatter plots. The `geom_density_2d()` geom is useful for highlighting regions of high density (especially when there are many data). The `stat_ellipse()` stat (a geom that shows some kind of statistical summary of the data) shows a confidence ellipse (95% by default) around groups of observations.
 
-> Note that you can save a ggplot object, and then add geoms to it later!
+> Note that you can store a ggplot as an object, and then add geoms to it later!
 
 ```{r}
 p1 <- ggplot(penguins, aes(x = bill_length_mm, y = bill_depth_mm, col = species))
@@ -113,7 +115,7 @@ p1 + geom_point() + stat_ellipse()
 
 ## Line plots
 
-When wanting to represent how a quantity changes over time, we will often employ line graphs. As our penguins data doesn't lend itself to this kind of plotting, we're going to load a new dataset, containing repeated circumference measurements made on 5 orange trees many years apart.
+When wanting to represent how a quantity changes over time, we will often employ line graphs. As our penguins dataset doesn't lend itself to this kind of plotting, we're going to load a new dataset, containing repeated circumference measurements made on 5 orange trees many years apart.
 
 ```{r load_orange}
 data(Orange)
@@ -149,9 +151,9 @@ ggplot(penguins, aes(species)) +
     geom_bar(fill = "lightblue", col = "black", size = 1)
 ```
 
-Let's create a ggplot object so we can experiment with a few things.
+Let's store a ggplot as an object so we can experiment with a few things.
 
-```{r p3
+```{r p3}
 p3 <- ggplot(penguins, aes(species, bill_length_mm))
 ```
 
@@ -180,8 +182,132 @@ p3 + geom_bar(stat = "summary",
     geom_point(position = position_jitter(0.2))
 ```
 
+If we want our plot to show more summary statistics of our data, than just the mean, we can use the `geom_boxplot()` geom. In the example below, we also choose to colour any outlying points (more then 1.5 x IQR from the median) as red, and to help visualise the distribution of points by adjusting their alpha (1 = totally opaque, 0 = totally transparent).
 
+```{r geom_boxplot}
+p3 + geom_boxplot(fill = "lightblue", outlier.color = "red") + 
+    geom_point(alpha = 0.1)
+```
 
+Similar to a boxplot, you can use a geom_violin() geom to show the distribution of points for each group. The `draw_quantiles` argument takes a vector of quantiles to draw. In the example below, I used the 1st and 3rd quartiles. I also use a `geom_point()` layer to show the median for each group, just like we did with `geom_bar()`.
 
+```{r}
+p3 + geom_violin(fill = "lightblue", draw_quantiles = c(0.25, 0.75)) +
+    geom_point(stat = "summary", fun = "median")
+```
 
+## Factorial bar graphs
+
+Sometimes we might want to plot an outcome variable, across the values of two (or more) categorical variables. Let's say we wish to know how the bill_length_mm variable varies with different combinations of the sex and species variables. For this, we can create a factorial bar graph.
+
+In the example below, we map the sex variable to the x aesthetic, bill_length_mm to the y aesthetic, and species to the fill aesthetic. We add a geom_bar layer that will summarise the median of each group and, importantly, set the argument `position = "dodge"`. This means that bars for the same value of x aesthetic (sex), but a different fill aesthetic (species), will be "dodged" so that they are adjacent to each other, instead of on top of each other. Other position arguments include `"stack"` and `"fill"` (try these out for yourself).
+
+> Note: In order for the `geom_point()` layer to be correctly dodged with the bars, it must use the argument `position = position_dodge(0.9)`.
+
+```{r factorial_sex_species}
+ggplot(penguins, aes(sex, bill_length_mm, fill = species)) +
+    geom_bar(stat = "summary", fun = "median", col = "black", position = "dodge") +
+    geom_point(position = position_dodge(0.9))
+```
+
+## Facetting
+
+When we have multiple variables we wish to represent in a plot, we can create clearer, more effective visualisations by splitting the data across subplots, or *facets*. To illustrate this, let's start by creating a ggplot of bill_length_mm vs. bill_depth_mm, and colouring by the species variable.
+
+```{r p4}
+p4 <- ggplot(penguins, aes(x = bill_length_mm, y = bill_depth_mm, col = species)) +
+    geom_point()
+```
+
+If we call our p4 object, we'll get a scatter plot with all of the data in a single plot, coloured by species. But what if, to make the plot more understandable, we want to separately plot the data for each species? Rather than filtering our data and making three separate plots, we can do this by simply adding a `facet_wrap()` layer, and using a tilde (~) symbol to indicate the variable we wish to facet by.
+
+```{r facet_species}
+p4 + facet_wrap(~ species)
+```
+
+By default, the plot is drawn with the facets all in a single row, but we can change this with the `nrow` argument.
+
+```{r nrow_3}
+p4 + facet_wrap(~ species, nrow = 3)
+```
+
+If we wish to see this relationship by both species and sex, we can just keep species mapped to the colour aesthetic and facet by sex instead.
+
+```{r facet_sex}
+p4 + facet_wrap(~ sex)
+```
+
+If we want to create a grid of facets, where the rows and columns correspond to different variables, we can use `facet_grid()` instead. The variable before the ~ will correspond to the rows, and the variable after the ~ will correspond to the columns.
+
+```{r facet_grid}
+p4 + facet_grid(sex ~ year)
+```
+
+## Customizing labels
+
+If we want to share our plot with others in a report or publication, we'll probably want it to have a nice title and labels. We can easily add a title and change the default labels by adding a `labs()` layer to our plot.
+
+> Note: by giving the col aesthetic a label, we are changing the label of the legend for this aesthetic.
+
+```{r labs}
+p5 <- p4 + labs(title = "Penguin bill length and depth by species",
+                subtitle = "Data collected on Torgersen, Biscoe, and Dream Islands",
+                x = "Bill length (mm)", 
+                y = "Bill depth (mm)", 
+                col = "Species")
+
+p5
+```
+
+## Customising the look of your plot with themes
+
+### Pre-built themes
+
+You can customize pretty much any feature of your ggplots, such as the presence of gridlines and tickmarks, font size, and the colour of the plot background. While you can change all these elements individually, a good starting place is to use one of the pre-built *themes*. Below, we reproduce p5 using the different pre-built themes, by adding the theme as a layer.
+
+```{r themes}
+p5 + theme_bw()
+p5 + theme_classic()
+p5 + theme_test()
+p5 + theme_dark()
+p5 + theme_minimal()
+p5 + theme_void()
+```
+
+### Customising themes
+
+Once you've found a theme that most closely resembles the design you're looking for, you can further customize plot elements using the `theme()` function. If we call `?theme()`, we can see there is a long list of plot components that you can edit. A web search engine is your friend here, searching online for the change you wish to make will usually lead you to the correct theme element.
+
+```{r theme_q, message=FALSE, warning=FALSE}
+?theme
+```
+
+Most theme elements are customised using a particular *theme function*. For example: 
+
+- line elements are customized using `element_line()` 
+- rectangle elements are customized using `element_rect()`
+- text elements are customized using `element_text()`
+- `element_blank()` is used to remove a particular element
+
+The settings for the theme element we're adjusting go inside the theme function. In the example below, we first remove the minor gridlines for the x and y axes, change the colour of the background, set a black border around the legend, and manually adjust the legend's position.
+
+> Note: the `legend.position` theme element doesn't use a theme function, but instead takes a vector of length 2, where the first element is the distance along the horizontal, and the second element is the distance along the vertical plane.
+
+```{r element_functions}
+p5 +
+    theme_bw() +
+    theme(panel.grid.minor.x = element_blank(),
+          panel.grid.minor.y = element_blank(),
+          panel.background = element_rect(fill = "aliceblue"),
+          legend.background = element_rect(colour = "black"),
+          legend.position = c(0.91, 0.17))
+```
+
+## Saving plots
+
+Once you have created a plot to be proud of, you can save it as an image (.eps, .ps, .tex (pictex), .pdf, .jpeg, .tiff, .png, .bmp, .svg or .wmf) using the `ggsave()` function. This will save *the last ggplot you plotted in R*. The first argument specifies the file name (including the file extension of the type you wish to save as), and arguments that control the size of the plot. It's usual to experiment with increasing and decreasing the dimensions of the image until you find a sizing that works. For example, you'll find as you make the image larger, the text will be smaller, relative to the overall size.
+
+```{r saving}
+ggsave("plots/Graph 1.pdf", width = 6, height = 6, units = "in")
+```
 

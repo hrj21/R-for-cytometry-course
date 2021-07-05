@@ -1,7 +1,0 @@
-#name: name
-#FCS_File: FCS_File
-name	FCS_File
-OpA_I2_C2_IM1_WB1_R1.fcs	OpA_I2_C2_IM1_WB1_R1.fcs	OpA_I2_C2_IM1_WB1_R1.fcs
-OpA_I2_C2_IM1_WB1_R2.fcs	OpA_I2_C2_IM1_WB1_R2.fcs	OpA_I2_C2_IM1_WB1_R2.fcs
-OpA_I2_C2_IM1_WB1_R3.fcs	OpA_I2_C2_IM1_WB1_R3.fcs	OpA_I2_C2_IM1_WB1_R3.fcs
-OpA_I2_C2_IM1_WB2_R1.fcs	OpA_I2_C2_IM1_WB2_R1.fcs	OpA_I2_C2_IM1_WB2_R1.fcs
