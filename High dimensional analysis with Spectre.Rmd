@@ -209,6 +209,326 @@ make.colour.plot(cytonorm_sub,
 
 The clustering here doesn't need to uncover fine biological detail, just to separate the main cell types, so this is fine.
 
+## Training the CytoNorm model
+
+Now our data are prepared for the CytoNorm algorithm, we train the model using `train.cytonorm()`. This function takes each metacluster, and learns (potentially) non-linear relationships between the level of each marker in each batch control file, and the mean of all the control files for that marker.
+
+```{r train_cytonorm, message=FALSE, warning=FALSE}
+cytonorm <- train.cytonorm(model = cytonorm, align.cols = transformed_cols)
+```
+
+## Aligning the data
+
+Now that our CytoNorm model is trained, we can use it to align the data and add these columns to our data.table, using the `run.cytonorm()` function. This function identifies what batch each event belongs to (based on the Batch column we added with our metadata), then applies the transformation for each marker learned during the training step above.
+
+> Note: the added columns with the aligned data have "_aligned" appended to their name, so we make a new vector of names called aligned_cols, by `paste0()`ing together the original column names with "_aligned".
+
+```{r}
+cell_dat <- run.cytonorm(dat = cell_dat, model = cytonorm, batch.col = "Batch")
+aligned_cols <- paste0(transformed_cols, '_aligned')
+```
+
+## Visualising the alignment
+
+Let's do a high-level check of the batch alignment by computing and plotting a UMAP embedding using the aligned columns, on the batch control files.
+
+```{r}
+reference_dat <- do.filter(cell_dat, "Sample", reference_files)
+reference_sub <- do.subsample(reference_dat, 1e4)
+reference_sub <- run.umap(reference_sub, use.cols = aligned_cols)
+
+make.colour.plot(reference_sub, 
+                 "UMAP_X", 
+                 "UMAP_Y", 
+                 col.axis = "Batch", 
+                 col.type = "factor", 
+                 path = "plots")
+```
+
+Woohoo! Now we can see that our two batch control files line up with each other.
+
+# Clustering 
+
+To help us identify clusters or populations of cells in our data, we can employ a clustering algorithm to partition the rows of the data.table into groups that are more similar to each other than they are to rows in other groups. Traditional gating is just "clustering by hand", but can be subjective and miss important populations when the parameter space is large.
+
+At present, the Spectre package comes with three popular clustering algorithms:
+
+- FlowSOM
+- Phenograph
+- Chronoclust
+
+FlowSOM and phenograph are state of the art and perform well for most cytometry clustering problems. Chronoclust is designed to find and track clusters through different time points. In this example we will use FLowSOM, but you can run phenograph using `run.phenotgraph()`.
+
+Performing FlowSOM clustering is easy: we simply provide the name of the data object, the columns we wish to use for clustering, and the number of metaclusters (meta.k) we wish to partition the data into, to the `run.flowsom()` function. If you leave the meta.k argument blank, the algorithm will try to determine an optimal number, but it is usually best to set this a little higher than the number of populations you think may be identifiable in the data. We can alter the number of metaclusters later if we believe we are under or over clustering.
+
+> Note: sometimes you may get more identifiable clusters by only using cell type markers (rather than functional markers). Clustering only on cell type markers doesn't stop us from analysing the abundance of our functional markers later in the analysis.
+
+```{r flowSOM}
+cell_dat <- run.flowsom(cell_dat, aligned_cols, meta.k = 15)
+```
+
+# Dimension reduction
+
+To help visualise gross differences between our groups, and to help us identify if we are under or over clustering our data, it's useful to compute and plot a lower-dimensional embedding of our data. 
+
+At present, the Spectre package comes with four popular dimension reduction algorithms:
+
+- UMAP
+- t-SNE (Barnes-Hut)
+- Fourier-interpolated t-SNE (FIt-SNE)
+- Principal components analysis (PCA)
+
+UMAP and t-SNE are state of the art, with FIt-SNE being considerably faster than the Barnes-Hut t-SNE. PCA allows us to perform linear dimension reduction, so isn't very good for identifying groups of events in high dimensional data, but is useful for identifying groups of samples.
+
+## Performing a UMAP embedding
+
+Let's perform a UMAP embedding. As UMAP can take minutes on very large datasets, it's common to first randomly sample a smaller number of rows from the data. When first exploring the data, it's good to start small, and to repeat the embedding with a larger number of events once you are happy with your analysis. To perform the UMAP, we just execute `run.umap()` with the sampled data as the first argument, and the columns we wish to use as the second argument.
+
+> Note: similar functions `run.tsne()`, `run.fitsne()`, and `run.pca()` are used to perform t-SNE, FIt-SNE, and PCA, respectively.
+
+```{r umap}
+cell_sub <- do.subsample(cell_dat, targets = 1e4)
+cell_sub <- run.umap(cell_sub, aligned_cols)
+```
+
+## Plotting the data in the lower-dimensional space
+
+Let's plot the two UMAP dimensions against each other to visualise the embedding. First, we colour the dots based on their FlowSOM metacluster, telling the `make.colour.plot()` function that the variable we're colouring by is a factor (rather than continuous). The `add.label = TRUE` argument adds text labels to the plot to identify the center of each cluster.
+
+```{r umap_by_cluster}
+make.colour.plot(cell_sub,
+                 "UMAP_X",
+                 "UMAP_Y",
+                 col.axis = "FlowSOM_metacluster",
+                 col.type = "factor",
+                 add.label = TRUE,
+                 path = "plots")
+```
+
+Let's reproduce the same plot, but this time let's split the data from our treatment groups across different plots, by using the `make.multi.plot()` function.
+
+```{r umap_by_group}
+make.multi.plot(cell_sub, 
+                "UMAP_X", 
+                "UMAP_Y", 
+                plot.by = "FlowSOM_metacluster", 
+                divide.by = "Group", 
+                col.type = "factor",
+                dot.size = 0.5,
+                path = "plots")
+```
+
+Finally, to help us assign cell types to our clusters ("annotating" the clusters), let's plot the UMAP embeddings, but facetting by antigen, and colouring by expression of that antigen.
+
+```{r umap_by_expression}
+make.multi.plot(cell_sub, 
+                "UMAP_X", 
+                "UMAP_Y", 
+                plot.by = aligned_cols,
+                path = "plots")
+```
+
+# Annotating our clusters
+
+The process of assigning a biological cell type to each cluster is usually the hardest and labour intensive part of the analysis. To help with this, in addition to the UMAP plots we created a moment ago, it can be useful to create an expression heatmap for all the clusters. This is a heatmap where rows represent FlowSOM metaclusters, columns represent antigens, and the colour of each tile represents the median expression value.
+
+First, we need to compute the median expression value for each antigen, for each metacluster. Computing a statistic on a per-group basis is called *aggregating* the data, and we can do this using Spectre's `do.aggregate()` function.
+
+Once we've computed the medians, we use the function `make.pheatmap()` (notice the p) to generate the heatmap. The medians we calculated are the first argument, followed by the column we wish to divide the heatmap rows by (`sample.col`), and the column we wish to divide the heatmap columns by (`plot.cols`).
+
+```{r metak_heatmap}
+medians <- do.aggregate(cell_dat, aligned_cols, by = "FlowSOM_metacluster")
+
+make.pheatmap(medians, 
+              sample.col = "FlowSOM_metacluster", 
+              plot.cols = aligned_cols,
+              path = "plots")
+```
+
+Armed with our UMAP plots and our expression heatmap, now we need to start assigning cell types to our FlowSOM metaclusters. Note that it's better to over cluster than to under cluster, as at this point we can merge clusters we believe represent the same cell type. 
+
+To annotate, we create a list of vectors, where the name of each element is the name of the cell type, and the elements of each vector are the metacluster(s) to be assigned to that cell type.
+
+Once we have created our list, the `do.list.switch()` function will convert it into a data.table for us, where the first column contains the metacluster numbers, and the second column contains the cell types. Just for convenience, we rename the columns to "Values" and "Population", respectively.
+
+```{r annotation}
+annots <- list("T cells"             = c(1, 4),
+               "CD45-"               = c(6, 8, 10),
+               "Immature B cells"    = 3,
+               "Mature B cells"      = 2,
+               "Monocytes"           = c(12, 14),
+               "Mature neutrophils"  = c(11, 13),
+               "Immature neutrophils"= 9,
+               "Other/Unknown"       = c(5, 7, 15)
+               )
+
+annots <- do.list.switch(annots)
+names(annots) <- c("Values", "Population")
+annots
+```
+
+Let's add a new column to our data.table indicating the annotated population of each event. We can do this using the `do.add.cols()` function just like we did when we added metadata to our data.table. As a reminder: the first argument is our master data.table, the `base.col` argument is the column in that data.table we'll match our new data against, the `add.dat` argument is the data.table containing our annotations, and the `add.by` argument is the column in the annotations containing the metacluster numbers (to match against the metacluster numbers in the master data.table).
+
+```{r add_annotation}
+cell_dat <- do.add.cols(cell_dat, 
+                        base.col = "FlowSOM_metacluster", 
+                        add.dat = annots, 
+                        add.by = "Values")
+cell_dat
+```
+
+So we can create a nice UMAP plot labelled with our cell types, let's do the same for the cell_sub data.table, then plot the UMAP embedding with the cell type labels.
+
+```{r annotated_umap}
+cell_sub <- do.add.cols(cell_sub, 
+                        base.col = "FlowSOM_metacluster", 
+                        add.dat = annots, 
+                        add.by = "Values")
+
+make.colour.plot(cell_sub,
+                 "UMAP_X",
+                 "UMAP_Y",
+                 col.axis = "Population",
+                 col.type = "factor",
+                 add.label = TRUE,
+                 path = "plots")
+```
+
+Lastly, let's recreate our expression heatmap using our annotated cell types as rows, instead of the metaclusters.
+
+```{r annotated_heatmap}
+medians <- do.aggregate(cell_dat, transformed_cols, by = "Population")
+
+make.pheatmap(medians, "Population", transformed_cols, path = "plots")
+```
+
+# Exporting the data
+
+Now that our original .fcs data are combined and annotated with the metadata and population data, it's a good idea to save the master data.table so we can come back to where we left off in future. We do this using the `write.files()` function from Spectre. By default it wll save one massive file, but we can use the `divide.by` argument to split it into individual files based on the values of a column. Here, I split by Sample. We can export the data as .csv, .fcs, or both.
+
+```{r write_files}
+write.files(cell_dat,
+            file.prefix = "data/annotated",
+            divide.by = "Sample",
+            write.csv = FALSE,
+            write.fcs = TRUE)
+```
+
+# Statistical analysis
+
+So far we have partitioned our dataset into populations of cells. Now what? The next step in your analysis will depend on the questions you are asking, but a general starting point is to generate summary statistics of our data that include:
+
+- the proportion of all events in each population
+- the median fluorescence/mass intensity (MFI) of each antigen within population
+
+## Generating summary statistics
+
+We can generate all of this in Spectre with the `create.sumtable()` function. First though, I find at this point in the analysis my column names have become long and cumbersome to plot, so I replace them with simple names.
+
+```{r simplify_names}
+simple_names <- c("CD3e", "CD16-32", "Ly6G", "CD45", "CD48", "CD11b", "B220", "Ly6C")
+names(cell_dat)[22:29] <- simple_names
+```
+
+To the `create.sumtable()` function, I give the data.table as the first argument, and the columns that indicate the Sample and Population of each event to the `sample.col` and `pop.col` arguments, respectively. I use the `use.cols` argument to specify what antigens I want MFIs calculated for, and the `annot.cols` argument to specify columns with additional metadata I want to be included in the summary data.table.
+
+```{r sumtable}
+sum_dat <- create.sumtable(dat = cell_dat,
+                           sample.col = "Sample",
+                           pop.col = "Population",
+                           use.cols = simple_names,
+                           annot.cols = c("Group", "Batch"))
+
+names(sum_dat)
+```
+
+## Plotting heatmap of summary statistics
+
+One option to visualise the summary statistics we just generated is to use a heatmap. With a large number of antigens and/or populations, this heatmap can grow large and hard to read, but we'll generate one anyway and see how we can filter it down to more interesting variables.
+
+As we have percentages, and MFIs from highly and weakly-expressed antigens, we first need to transform our summary statistics into z-scores (into units of standard deviation). Once we define what variables we want to transform, we can do this using the `do.zscore()` function. 
+
+> Note: The argument `replace = TRUE` just means the transformed data replace the untransformed data, rather than creating new columns.
+
+```{r z_score}
+plot_cols <- names(sum_dat)[4:75]
+sum_dat_z <- do.zscore(sum_dat, plot_cols, replace = TRUE)
+```
+
+To draw the heatmap, we use the `make.pheatmap()` function, just like we did earlier. If you set the argument `is.fold = TRUE`, the tiles will be coloured based on their fold difference from the mean of that column. To add any metadata for each sample to the plot, we supply them as a vector of column names to the `annot.cols` argument. The `dendrogram` argument allows us to hierarchically cluster (and draw the dendrogram) the "column", "row", or "both" (the default).
+
+```{r zscore_heatmap}
+make.pheatmap(sum_dat_z,
+              sample.col = "Sample",
+              plot.cols = plot_cols,
+              is.fold = TRUE,
+              annot.cols = c("Group", "Batch"),
+              dendrograms = "column",
+              path = "plots")
+```
+
+## Principal component analysis of samples
+
+We can use PCA to see if our groups of samples partition separately from each other when projected onto the first two principal components. We can perform this in Spectre using `run.pca()` as below. The argument `group.ind` lets us specify a grouping variable, and setting `plot.ind.group = TRUE` draws 95% confidence ellipses around each group. Setting the argument `scree.plot = FALSE` just stops the function from asking you to select the number of components you're interested in (doesn't matter for the plots).
+
+> Note: for some reason, this function dumps quite a lot of output both in your working directory, and in the directory you specify as the `path` argument.
+
+```{r pca}
+run.pca(sum_dat, 
+        use.cols = plot_cols,
+        group.ind = "Group",
+        plot.ind.group = TRUE,
+        scree.plot = FALSE,
+        path = "plots/PCA"
+)
+```
+
+## Pairiwse comparisons
+
+To identify summary statistics that are unlikely to be the same across our groups, we can perform pairwise Mann-Whitney U tests (non-parametric equivalent of t test) and compute fold changes and false discovery rate (FDR)-corrected p values. The function `create.stats()` will do this all for us where the first argument is the data.table of summary statistics (not the z scores). The `use.cols` argument lets us choose the summary statistics to compare, `sample.col` and `group.col` arguments are the columns that identify each sample and group, respectively. The `comparisons` argument let's us specify a list of 2-element vectors, where each vector identifies a pair of Groups we want to compare. In this example, we only have two groups, Mock and Virus.
+
+> Note: I've shown the argument `corrections = "fdr"` here so the correction is transparent, but this is the default (and only for now) value.
+
+```{r create_stats}
+stats_tab <- create.stats(sum_dat, 
+                          use.cols = plot_cols,
+                          sample.col = "Sample",
+                          group.col = "Group",
+                          comparisons = list(c("Mock", "Virus")),
+                          corrections = "fdr")
+
+stats_tab[, 1:4]
+```
+
+This creates a data.table with 2 rows for each comparison (one with Log2 fold change, the other with the FDR-corrected p value), and a row for the p value of the omnibus test (Kruskal-Wallis). Except the first two, each column represents one of the summary statistics we passed to the `create.stats()` function.
+
+We can visualise the log2 fold change against the p values using a volcano plot. To construct the volcano plot, we first need to extract the fold changes and p values form the stats_tab data.table. I do this below, using `[` to subset the first row for the fold change and the second row for the p values, and dropping the first two columns. This operation returns a data.table with a single row in each case, so to turn these into vectors we can just wrap them inside the `unlist()` function.
+
+```{r extract_fc_and_p}
+FC <- unlist(stats_tab[1, c(-1, -2)])
+p_values <- unlist(stats_tab[2, c(-1, -2)])
+```
+
+Now, let's combine these into a neat data.frame (we could also use a data.table if we wanted), including a column for the variable names.
+
+```{r stats_df}
+stats_df <- data.frame(FC = FC, p_values = p_values, vars = plot_cols)
+stats_df
+```
+
+Now, to make our volcano plot we use the `make.volcano.plot()` function, supplying the p values and log2 fold change values as the first and second arguments, respectively.
+
+```{r volcano_plot}
+make.volcano.plot(p_values,
+                  FC, 
+                  vars = as.character(1:72), 
+                  title = "Mock vs Virus",
+                  xlim = c(-4, 4),
+                  path = "plots")
+```
+
+
+
 
 
 

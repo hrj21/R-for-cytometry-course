@@ -44,7 +44,7 @@ lapply(transformed_cols, function(x) {
 })
 
 # Read metadata -----------------------------------------------------------
-meta_dat <- read.csv("sample_details.csv")
+meta_dat <- read.csv("data/clean/sample_details.csv")
 meta_dat
 
 cell_dat <- do.add.cols(cell_dat, 
@@ -94,7 +94,6 @@ reference_sub <- run.umap(reference_sub, use.cols = aligned_cols)
 make.colour.plot(reference_sub, 'UMAP_X', 'UMAP_Y', "Batch", 'factor', path = "plots")
 
 # Clustering --------------------------------------------------------------
-aligned_cols <- paste0(transformed_cols, '_aligned')
 
 aligned_cols
 
@@ -216,7 +215,8 @@ run.pca(sum_dat,
         use.cols = plot_cols,
         plot.ind.group = TRUE,
         group.ind = "Group",
-        path = "PCA"
+        scree.plot = TRUE,
+        path = "plots/PCA"
 )
 
 # Statistical analysis ----------------------------------------------------
@@ -231,6 +231,7 @@ FC <- unlist(stats_tab[1, c(-1, -2)])
 p_values <- unlist(stats_tab[2, c(-1, -2)])
 
 stats_df <- data.frame(FC = FC, p_values = p_values, vars = plot_cols)
+stats_df
 
 make.volcano.plot(p_values,
                   FC, 
