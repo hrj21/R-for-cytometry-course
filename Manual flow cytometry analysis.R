@@ -5,7 +5,7 @@ BiocManager::install("flowWorkspace")
 BiocManager::install("openCyto")
 BiocManager::install("ggcyto")
 devtools::install_github("jmeskas/flowCut")
-devtools::install_github("DillonHammill/CytoExploreR")######
+devtools::install_github("DillonHammill/CytoExploreR")
 
 library(flowCore)
 library(ggcyto)

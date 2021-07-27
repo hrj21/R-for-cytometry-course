@@ -26,7 +26,7 @@ Spectre is an R package that creates a simple and unified approach to high dimen
 
 # Installing and loading the packages
 
-We'll start by installing and loading the Spectre package. We could install this from CRAN (using `install.packages("Spectre")`), but we can get the latest version by installing it directly from GitHub. We also install the *EnhancedVolcano* package from Bioconductor.
+We'll start by installing and loading the Spectre package by installing it directly from GitHub. We also install the *EnhancedVolcano* package from Bioconductor.
 
 > Remember that `package::function()` is a way of using a function from an installed package without having to load the whole package.
 
@@ -143,7 +143,7 @@ Once we've read this .csv file we use the `do.add.cols()` function to add this i
 
 In this example, this results in each event being given values for the new Sample variable (just a shorter alias for each sample), Group variable, and Batch variable. Later, this will allow us to perform batch normalisation, separately plot different treatment groups, and perform statistical inference on the differences between groups.
 
-```{r metadata}
+```{r metadata, message=FALSE, warning=FALSE}
 meta_dat <- read.csv("data/clean/sample_details.csv")
 meta_dat
 
@@ -223,7 +223,7 @@ Now that our CytoNorm model is trained, we can use it to align the data and add 
 
 > Note: the added columns with the aligned data have "_aligned" appended to their name, so we make a new vector of names called aligned_cols, by `paste0()`ing together the original column names with "_aligned".
 
-```{r}
+```{r message=FALSE, warning=FALSE}
 cell_dat <- run.cytonorm(dat = cell_dat, model = cytonorm, batch.col = "Batch")
 aligned_cols <- paste0(transformed_cols, '_aligned')
 ```
@@ -232,7 +232,7 @@ aligned_cols <- paste0(transformed_cols, '_aligned')
 
 Let's do a high-level check of the batch alignment by computing and plotting a UMAP embedding using the aligned columns, on the batch control files.
 
-```{r}
+```{r message=FALSE, warning=FALSE}
 reference_dat <- do.filter(cell_dat, "Sample", reference_files)
 reference_sub <- do.subsample(reference_dat, 1e4)
 reference_sub <- run.umap(reference_sub, use.cols = aligned_cols)
@@ -263,7 +263,7 @@ Performing FlowSOM clustering is easy: we simply provide the name of the data ob
 
 > Note: sometimes you may get more identifiable clusters by only using cell type markers (rather than functional markers). Clustering only on cell type markers doesn't stop us from analysing the abundance of our functional markers later in the analysis.
 
-```{r flowSOM}
+```{r flowSOM, message=FALSE, warning=FALSE}
 cell_dat <- run.flowsom(cell_dat, aligned_cols, meta.k = 15)
 ```
 
@@ -286,7 +286,7 @@ Let's perform a UMAP embedding. As UMAP can take minutes on very large datasets,
 
 > Note: similar functions `run.tsne()`, `run.fitsne()`, and `run.pca()` are used to perform t-SNE, FIt-SNE, and PCA, respectively.
 
-```{r umap}
+```{r umap, message=FALSE, warning=FALSE}
 cell_sub <- do.subsample(cell_dat, targets = 1e4)
 cell_sub <- run.umap(cell_sub, aligned_cols)
 ```
@@ -330,7 +330,7 @@ make.multi.plot(cell_sub,
 
 # Annotating our clusters
 
-The process of assigning a biological cell type to each cluster is usually the hardest and labour intensive part of the analysis. To help with this, in addition to the UMAP plots we created a moment ago, it can be useful to create an expression heatmap for all the clusters. This is a heatmap where rows represent FlowSOM metaclusters, columns represent antigens, and the colour of each tile represents the median expression value.
+The process of assigning a biological cell type to each cluster is usually the hardest and most labour intensive part of the analysis. To help with this, in addition to the UMAP plots we created a moment ago, it can be useful to create an expression heatmap for all the clusters. This is a heatmap where rows represent FlowSOM metaclusters, columns represent antigens, and the colour of each tile represents the median expression value.
 
 First, we need to compute the median expression value for each antigen, for each metacluster. Computing a statistic on a per-group basis is called *aggregating* the data, and we can do this using Spectre's `do.aggregate()` function.
 
@@ -344,6 +344,8 @@ make.pheatmap(medians,
               plot.cols = aligned_cols,
               path = "plots")
 ```
+
+![](plots/Pheatmap by FlowSOM_metacluster.png){ width=50% }
 
 Armed with our UMAP plots and our expression heatmap, now we need to start assigning cell types to our FlowSOM metaclusters. Note that it's better to over cluster than to under cluster, as at this point we can merge clusters we believe represent the same cell type. 
 
@@ -369,7 +371,7 @@ annots
 
 Let's add a new column to our data.table indicating the annotated population of each event. We can do this using the `do.add.cols()` function just like we did when we added metadata to our data.table. As a reminder: the first argument is our master data.table, the `base.col` argument is the column in that data.table we'll match our new data against, the `add.dat` argument is the data.table containing our annotations, and the `add.by` argument is the column in the annotations containing the metacluster numbers (to match against the metacluster numbers in the master data.table).
 
-```{r add_annotation}
+```{r add_annotation, message=FALSE, warning=FALSE}
 cell_dat <- do.add.cols(cell_dat, 
                         base.col = "FlowSOM_metacluster", 
                         add.dat = annots, 
@@ -379,7 +381,7 @@ cell_dat
 
 So we can create a nice UMAP plot labelled with our cell types, let's do the same for the cell_sub data.table, then plot the UMAP embedding with the cell type labels.
 
-```{r annotated_umap}
+```{r annotated_umap, message=FALSE, warning=FALSE}
 cell_sub <- do.add.cols(cell_sub, 
                         base.col = "FlowSOM_metacluster", 
                         add.dat = annots, 
@@ -396,11 +398,13 @@ make.colour.plot(cell_sub,
 
 Lastly, let's recreate our expression heatmap using our annotated cell types as rows, instead of the metaclusters.
 
-```{r annotated_heatmap}
+```{r annotated_heatmap, message=FALSE, warning=FALSE}
 medians <- do.aggregate(cell_dat, transformed_cols, by = "Population")
 
 make.pheatmap(medians, "Population", transformed_cols, path = "plots")
 ```
+
+![](plots/Pheatmap by Population.png)
 
 # Exporting the data
 
@@ -432,7 +436,7 @@ names(cell_dat)[22:29] <- simple_names
 
 To the `create.sumtable()` function, I give the data.table as the first argument, and the columns that indicate the Sample and Population of each event to the `sample.col` and `pop.col` arguments, respectively. I use the `use.cols` argument to specify what antigens I want MFIs calculated for, and the `annot.cols` argument to specify columns with additional metadata I want to be included in the summary data.table.
 
-```{r sumtable}
+```{r sumtable, message=FALSE, warning=FALSE}
 sum_dat <- create.sumtable(dat = cell_dat,
                            sample.col = "Sample",
                            pop.col = "Population",
@@ -457,7 +461,7 @@ sum_dat_z <- do.zscore(sum_dat, plot_cols, replace = TRUE)
 
 To draw the heatmap, we use the `make.pheatmap()` function, just like we did earlier. If you set the argument `is.fold = TRUE`, the tiles will be coloured based on their fold difference from the mean of that column. To add any metadata for each sample to the plot, we supply them as a vector of column names to the `annot.cols` argument. The `dendrogram` argument allows us to hierarchically cluster (and draw the dendrogram) the "column", "row", or "both" (the default).
 
-```{r zscore_heatmap}
+```{r zscore_heatmap, message=FALSE, warning=FALSE}
 make.pheatmap(sum_dat_z,
               sample.col = "Sample",
               plot.cols = plot_cols,
@@ -467,13 +471,15 @@ make.pheatmap(sum_dat_z,
               path = "plots")
 ```
 
+![](plots/Pheatmap by Sample full.png)
+
 ## Principal component analysis of samples
 
 We can use PCA to see if our groups of samples partition separately from each other when projected onto the first two principal components. We can perform this in Spectre using `run.pca()` as below. The argument `group.ind` lets us specify a grouping variable, and setting `plot.ind.group = TRUE` draws 95% confidence ellipses around each group. Setting the argument `scree.plot = FALSE` just stops the function from asking you to select the number of components you're interested in (doesn't matter for the plots).
 
 > Note: for some reason, this function dumps quite a lot of output both in your working directory, and in the directory you specify as the `path` argument.
 
-```{r pca}
+```{r pca, message=FALSE, warning=FALSE}
 run.pca(sum_dat, 
         use.cols = plot_cols,
         group.ind = "Group",
@@ -482,6 +488,9 @@ run.pca(sum_dat,
         path = "plots/PCA"
 )
 ```
+
+![](graphics/PCA1.png)
+![](graphics/PCA2.png)
 
 ## Pairiwse comparisons
 
@@ -497,7 +506,7 @@ stats_tab <- create.stats(sum_dat,
                           comparisons = list(c("Mock", "Virus")),
                           corrections = "fdr")
 
-stats_tab[, 1:4]
+stats_tab[, 1:3]
 ```
 
 This creates a data.table with 2 rows for each comparison (one with Log2 fold change, the other with the FDR-corrected p value), and a row for the p value of the omnibus test (Kruskal-Wallis). Except the first two, each column represents one of the summary statistics we passed to the `create.stats()` function.
@@ -513,12 +522,12 @@ Now, let's combine these into a neat data.frame (we could also use a data.table 
 
 ```{r stats_df}
 stats_df <- data.frame(FC = FC, p_values = p_values, vars = plot_cols)
-stats_df
+head(stats_df)
 ```
 
 Now, to make our volcano plot we use the `make.volcano.plot()` function, supplying the p values and log2 fold change values as the first and second arguments, respectively.
 
-```{r volcano_plot}
+```{r volcano_plot, message=FALSE, warning=FALSE}
 make.volcano.plot(p_values,
                   FC, 
                   vars = as.character(1:72), 
@@ -527,8 +536,30 @@ make.volcano.plot(p_values,
                   path = "plots")
 ```
 
+## Filtering comparisons of interest
 
+Let's focus in on comparisons with fold changes and p values above certain thresholds. Let's define any feature having a (FDR-corrected) p value smaller than 0.05, and having a log2-fold change value >= 0.26 (this corresponds to a fold change of ~1.2), as of interest.
 
+Next, we extract a vector of features that meet these criteria, and remove any with missing values (happens when the values of a particular feature are all 0). Now, re plot our heatmap again, but this time we only include the filtered features based on our statistical analysis.
+
+```{r filtering_volcano}
+fold_filter <- abs(stats_df$FC) >= 0.26
+p_filter <- stats_df$p_value < 0.05
+
+stats_filtered <- stats_df[fold_filter & p_filter, ]$vars
+stats_filtered <- stats_filtered[!is.na(stats_filtered)]
+
+make.pheatmap(sum_dat_z,
+              sample.col = "Sample",
+              plot.cols = stats_filtered,
+              is.fold = TRUE,
+              annot.cols = c("Group", "Batch"),
+              dendrograms = 'both',
+              path = "plots")
+
+```
+
+![](plots/Pheatmap by Sample filtered.png)
 
 
 
