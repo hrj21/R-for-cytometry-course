@@ -1,0 +1,10 @@
+FileName,Sample,Genotype,Mouse,Batch
+Clambey LO 110116 IL10KO lung 1_01_Live,KO_lung_1,KO,KO1,A
+Clambey LO 110116 IL10KO lung 2_01_Live,KO_lung_2,KO,KO2,A
+Calmbey LO 11022016 IL10 KO lung 3_01_Live,KO_lung_3,KO,KO3,B
+Clambey LO 11022016 IL10 KO lung 4_01_Live,KO_lung_4,KO,KO4,B
+Clambey LO 110116 B6 lung1_01_Live,WT_lung_1,WT,WT1,A
+Clambey LO 110116 B6 lung 2_01_Live,WT_lung_2,WT,WT2,A
+Clambey LO 110116 B6 lung 3_01_Live,WT_lung_3,WT,WT3,A
+Clambey LO 11022016 B6 lung 4_01_Live,WT_lung_4,WT,WT4,B
+Clambey LO 11022016 B6 lung 5_01_Live,WT_lung_5,WT,WT5,B
