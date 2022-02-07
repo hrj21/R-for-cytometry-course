@@ -253,19 +253,19 @@ There are many built-in functions for a wide variety of tasks in R. Some importa
 > Note that some functions return single values only, while others return a value for each component of the input
 
 ```{r example functions}
-myValues <- c(1:100)
-myValues
-mean(myValues)
-median(myValues)
-min(myValues)
-max(myValues)
-sum(myValues)
-sd(myValues)
-class(myValues)
-length(myValues) # SOME FUNCTIONS RETURN SINGLE VALUES (AGGREGATE FUNCTIONS)
-log(myValues)    # OTHERS RETURN A VALUE FOR EACH COMPONENT OF THE VECTOR
-log10(myValues)  # CAREFUL: DIFFERENCE BETWEEN LOG10 AND LOG
-mySqrt <- sqrt(myValues)
+my_values <- c(1:100)
+my_values
+mean(my_values)
+median(my_values)
+min(my_values)
+max(my_values)
+sum(my_values)
+sd(my_values)
+class(my_values)
+length(my_values) # SOME FUNCTIONS RETURN SINGLE VALUES (AGGREGATE FUNCTIONS)
+log(my_values)    # OTHERS RETURN A VALUE FOR EACH COMPONENT OF THE VECTOR
+log10(my_values)  # CAREFUL: DIFFERENCE BETWEEN LOG10 AND LOG
+mySqrt <- sqrt(my_values)
 mySqrt
 ```
 
@@ -339,8 +339,8 @@ If we think about vectors being a single column of a data table, we can create a
 id <- 1:200
 group <- c(rep("Vehicle", 100), rep("Drug", 100))
 response <- c(rnorm(100, mean = 25, sd = 5), rnorm(100, mean = 23, sd = 5))
-myData <- data.frame(Patient = id, Treatment = group, Response = response)
-myData 
+my_data <- data.frame(Patient = id, Treatment = group, Response = response)
+my_data 
 ```
 
 ## Summarising a data.frame
@@ -348,12 +348,12 @@ myData
 You can see that a data.frame is shown in an intuitive, tabular format. We can quickly interrogate and summarise a data.frame using several useful functions.
 
 ```{r summarise_dataframe}
-head(myData) # DATA WILL BE DIFFERENT BECAUSE OF RANDOM SEED
-head(myData, 12)
-tail(myData, 10)
-dim(myData)
-str(myData)
-summary(myData)
+head(my_data) # DATA WILL BE DIFFERENT BECAUSE OF RANDOM SEED
+head(my_data, 12)
+tail(my_data, 10)
+dim(my_data)
+str(my_data)
+summary(my_data)
 ```
 
 ## Subsetting data.frames by position
@@ -363,13 +363,13 @@ If we wish to extract particular rows and/or columns from a data.frame, we can d
 > Note that as the columns of a data.table must have names, you can subset by index or by name. In addition, notice that `df$column` is a shorthand for `df[, column]`.
 
 ```{r subsetting_dataframes}
-myData[1, 2] #[ROWS, COLUMNS]
-myData[2, 3]
-myData[1:20, 2:3]
-myData[1:20, ]
-myData[, 3]
-myData[, "Response"]
-myData$Response
+my_data[1, 2] #[ROWS, COLUMNS]
+my_data[2, 3]
+my_data[1:20, c(2, 3)]
+my_data[1:20, ]
+my_data[, 3]
+my_data[, "Response"]
+my_data$Response
 ```
 
 ## Subsetting data.frames by value
@@ -379,9 +379,9 @@ Sometimes, rather than subsetting data.frames for specific row indices, we might
 > Remember that because we are just filtering rows, we leave the space after the comma blank, to return all columns. We could also subset columns at the same time if we wanted to.
 
 ```{r subset_df_values}
-responders <- myData$Response > 26
+responders <- my_data$Response > 26
 responders
-myData[responders, ]
+my_data[responders, ]
 ```
 You can think of this process as lining up the rows of the data with the logical vector, and keeping only the rows that have a value of TRUE (indicating that row passes the criterion).
 
@@ -394,17 +394,17 @@ Storing a logical vector as an object and then using this to subset is a clean w
 - `<`, `>`, `<=`, `>=` mean *smaller than*, *larger than*, *smaller than or equal to*, and *larger than or equal to*
 
 ```{r subset_df_values2}
-myData[myData$Treatment == "Vehicle" & myData$Response <= 23, ]
-myData[myData$Treatment == "Vehicle" | myData$Response >= 21, ]
-myData[myData$Treatment != "Vehicle" | myData$Response > 24, ]
+my_data[my_data$Treatment == "Vehicle" & my_data$Response <= 23, ]
+my_data[my_data$Treatment == "Vehicle" | my_data$Response >= 21, ]
+my_data[my_data$Treatment != "Vehicle" | my_data$Response > 24, ]
 ```
 
 It's also easy to add new columns to a data.frame. We simply use the `$` sign to assign values to a column of our data.frame that does not yet exist.
 
 ```{r new_column}
 age <- round(rnorm(200, mean = 40, sd = 20))
-myData$Age <- age
-head(myData)
+my_data$Age <- age
+head(my_data)
 ```
 
 # Reading data into R
@@ -443,7 +443,7 @@ Finally, sometimes a package isn't mature enough to be on CRAN or Bioconductor, 
 
 # Installing the dplyr package
 
-So far, we've done some basic subsetting of rows and columns of data.frames, but sometimes you need much greater flexibility when manipulating tabular data. The *dplyr* (data.frame plyr) package is designed to make working with tabular data very easy. The package is on CRAN, so let's atsrt by installing it.
+So far, we've done some basic subsetting of rows and columns of data.frames, but sometimes you need much greater flexibility when manipulating tabular data. The *dplyr* (data.frame plyr) package is designed to make working with tabular data very easy. The package is on CRAN, so let's start by installing it.
 
 ```{r install_dplyr}
 install.packages("dplyr")

@@ -26,7 +26,7 @@ Spectre is an R package that creates a simple and unified approach to high dimen
 
 # Installing and loading the packages
 
-We'll start by installing and loading the Spectre package by installing it directly from GitHub. We also install the *EnhancedVolcano* package from Bioconductor.
+We'll start by installing and loading the Spectre package by installing it directly from GitHub. We also install the *CytoNorm* package from GitHub and the *EnhancedVolcano* package from Bioconductor.
 
 > Remember that `package::function()` is a way of using a function from an installed package without having to load the whole package.
 
@@ -34,6 +34,7 @@ We'll start by installing and loading the Spectre package by installing it direc
 #install.packages(c("devtools", "BiocManager"))
 
 #devtools::install_github("immunedynamics/spectre")
+#devtools::install_github("saeyslab/CytoNorm")
 #BiocManager::install("EnhancedVolcano")
 
 library(Spectre)
@@ -72,7 +73,7 @@ data_list <- read.files(file.loc = "data/clean",
 
 As a sanity check, we can use the `do.list.smmary()` function to print out some summary information about the data we just read in. This returns a list with three elements:
 
-- the first element is a data.frame showing the column names for each file we read in. This allows us to confirm the files we read in are all labeled the same way (with the same fluorophores and antigens)
+- the first element is a data.frame showing the column names for each file we read in. This allows us to confirm the files we read in are all labelled the same way (with the same fluorophores and antigens)
 - the second element tells us the number of columns in each file. These should all be the same for files from the same experiment
 - the third element tells us the number of events in each file. These may vary between files, and allows us to visually check if any files have an unusually low event count.
 
@@ -128,7 +129,7 @@ After inspecting each of the plots, we may wish to go back and change our transf
 
 # Adding sample metadata
 
-Often, we will have sample metadata we wish to include our analysis that couldn't read in as part of our .fcs files. This might include sample identifiers and grouping variables such as treatment, concentration, and time. It's easy to add this information to your data.table by manually creating a .csv file with the relevant information, and merging this with your event level data.
+Often, we will have sample metadata we wish to include in our analysis that couldn't read in as part of our .fcs files. This might include sample identifiers and grouping variables such as treatment, concentration, and time. It's easy to add this information to your data.table by manually creating a .csv file with the relevant information, and merging this with your event level data.
 
 In your data/clean/ directory, you should have the file "sample_details.csv" that contains the metadata for this example. If you open the file as a spreadsheet, you"ll see it contains the columns:
 
@@ -257,7 +258,7 @@ At present, the Spectre package comes with three popular clustering algorithms:
 - Phenograph
 - Chronoclust
 
-FlowSOM and phenograph are state of the art and perform well for most cytometry clustering problems. Chronoclust is designed to find and track clusters through different time points. In this example we will use FLowSOM, but you can run phenograph using `run.phenotgraph()`.
+FlowSOM and phenograph are state of the art and perform well for most cytometry clustering problems. Chronoclust is designed to find and track clusters through different time points. In this example we will use FlowSOM, but you can run phenograph using `run.phenotgraph()`.
 
 Performing FlowSOM clustering is easy: we simply provide the name of the data object, the columns we wish to use for clustering, and the number of metaclusters (meta.k) we wish to partition the data into, to the `run.flowsom()` function. If you leave the meta.k argument blank, the algorithm will try to determine an optimal number, but it is usually best to set this a little higher than the number of populations you think may be identifiable in the data. We can alter the number of metaclusters later if we believe we are under or over clustering.
 
@@ -293,7 +294,7 @@ cell_sub <- run.umap(cell_sub, aligned_cols)
 
 ## Plotting the data in the lower-dimensional space
 
-Let's plot the two UMAP dimensions against each other to visualise the embedding. First, we colour the dots based on their FlowSOM metacluster, telling the `make.colour.plot()` function that the variable we're colouring by is a factor (rather than continuous). The `add.label = TRUE` argument adds text labels to the plot to identify the center of each cluster.
+Let's plot the two UMAP dimensions against each other to visualise the embedding. First, we colour the dots based on their FlowSOM metacluster, telling the `make.colour.plot()` function that the variable we're colouring by is a factor (rather than continuous). The `add.label = TRUE` argument adds text labels to the plot to identify the centre of each cluster.
 
 ```{r umap_by_cluster}
 make.colour.plot(cell_sub,
@@ -318,7 +319,7 @@ make.multi.plot(cell_sub,
                 path = "plots")
 ```
 
-Finally, to help us assign cell types to our clusters ("annotating" the clusters), let's plot the UMAP embeddings, but facetting by antigen, and colouring by expression of that antigen.
+Finally, to help us assign cell types to our clusters ("annotating" the clusters), let's plot the UMAP embeddings, but faceting by antigen, and colouring by expression of that antigen.
 
 ```{r umap_by_expression}
 make.multi.plot(cell_sub, 
@@ -408,7 +409,7 @@ make.pheatmap(medians, "Population", transformed_cols, path = "plots")
 
 # Exporting the data
 
-Now that our original .fcs data are combined and annotated with the metadata and population data, it's a good idea to save the master data.table so we can come back to where we left off in future. We do this using the `write.files()` function from Spectre. By default it wll save one massive file, but we can use the `divide.by` argument to split it into individual files based on the values of a column. Here, I split by Sample. We can export the data as .csv, .fcs, or both.
+Now that our original .fcs data are combined and annotated with the metadata and population data, it's a good idea to save the master data.table so we can come back to where we left off in future. We do this using the `write.files()` function from Spectre. By default it will save one massive file, but we can use the `divide.by` argument to split it into individual files based on the values of a column. Here, I split by Sample. We can export the data as .csv, .fcs, or both.
 
 ```{r write_files}
 write.files(cell_dat,
@@ -552,6 +553,7 @@ stats_filtered <- stats_filtered[!is.na(stats_filtered)]
 make.pheatmap(sum_dat_z,
               sample.col = "Sample",
               plot.cols = stats_filtered,
+              file.name = "Pheatmap by sample filtered.png",
               is.fold = TRUE,
               annot.cols = c("Group", "Batch"),
               dendrograms = 'both',

@@ -47,8 +47,7 @@ We'll use the other packages later, so it's a good idea to install them now.
 # BiocManager::install("flowWorkspace")
 # BiocManager::install("openCyto")
 # BiocManager::install("ggcyto")
-# BiocManager::install("flowCut")
-# devtools::install_github("DillonHammill/CytoExploreR")
+# devtools::install_github("jmeskas/flowCut")
 
 library(flowCore)
 library(ggcyto)
@@ -99,30 +98,25 @@ keyword(my_fcs)$SPILL
 
 ## Removing poor quality events with flowCut
 
-Not all events in a .fcs file are created equally. Events collected during periods of turbulent flow may have erroneously high or low fluorescence values. These periods may also be sparse with data. Removing events from untrustworthy periods of acquisition is important in any analysis to ensure they don't result in false conclusions. The flowClean and flowAI algorithms are two methods for cleaning up flow cytometry files, that are available in flowJo. A newer algorithm, *flowCut* is available in R that seems to remove regions of data that I would consider removing manually myself, so we'll use this instead (with their default parameters I find flowClean can be a little lax, while flowAI can be a little strict).
+Not all events in a .fcs file are created equally. Events collected during periods of turbulent flow may have erroneously high or low fluorescence values. These periods may also be sparse with data. Removing events from untrustworthy periods of acquisition is important in any analysis to ensure they don't result in false conclusions. The flowClean, flowAI algorithms are two methods for cleaning up flow cytometry files, that are available in flowJo. A newer algorithm, *flowCut* is available in R that seems to remove regions of data that I would consider removing manually myself, so we'll use this instead (with their default parameters I find flowClean can be a little lax, while flowAI can be a little strict). An alternative algorithm in R is PeacoQC, which is newer, but I don't find it performs as well as flowCut on my data.
 
-To apply the flowCut algorithm to a flowFrame, it's as simple as loading the package and calling `flowCut([flowFrame])`. Any files that have events removed get a graphical summary saved in a folder called flowCut under your working directory. The resulting object is a list with four elements:
+To apply the flowCut algorithm to a flowFrame, it's as simple as loading the package and calling `flowCut([flowFrame])`. We can extract the cleaned flowframe from the resulting object using `$frame`.
 
-- The *frame* element is a data.frame containing only the good quality events
-- The *ind* element is a vector of the indices of the removed events
-- The *data* element is a table summarizing the quality of each sample
-- The *worstChan* is the index of the most problematic channel before cleaning
+> NOTE: flowCut isn't yet available as a plugin in FlowJo, so if you want to use flowAI instead to compare results with FlowJo, you can use `flowAI::flow_auto_qc(my_fcs)`.
 
-> NOTE: FlowCut isn't yet available as a plugin in FlowJo, so if you want to use flowAI instead to compare results with FlowJo, you can use `flowAI::flow_auto_qc(my_fcs)`.
-
-```{r flowcut}
+```{r flowCut}
 library(flowCut)
-cut_result <- flowCut(my_fcs)
-
-cut_result$frame 
-cut_result$data
-cut_result$worstChan
+cut_result <- flowCut(my_fcs) #this runs flowCut and outputs diagnostics to /flowCut folder
+#cut_result #to see an overview
+cut_result$frame # for the flowFrame to analyse
+cut_result$data #for the metadata
+cut_result$worstChan #for just the worst channel, useful to visualise any problems by using a plotting tool
 ```
 
 As we wish to continue working with the cleaned flowFrame, we can extract the frame slot, and store it as a new object.
 
 ```{r clean_fcs}
-cut_fcs <- cut_result$frame
+clean_fcs <- cut_result$frame
 ```
 
 ## Compensating an .fcs file
@@ -134,13 +128,13 @@ If your panel of fluorophores exhibit spectral overlap with each other, it's imp
 We start by looking to see if the acquisition spillover matrix is saved as a keyword in the .fcs files. To do this we use the `spillover()` function, that just returns the different spillover keywords (different vendors and different .fcs versions use different keywords for the matrix).
 
 ```{r spillover}
-spillover(cut_fcs)
+spillover(clean_fcs)
 ```
 
 We can see that this .fcs file has its spillover matrix saved inside the `$SPILL` keyword. To compensate the file using this spillover matrix, we use the `compensate()` function, with the flowFrame as the first argument and the spillover matrix as the second argument.
 
 ```{r compensate}
-comp_fcs <- compensate(cut_fcs, spillover(cut_fcs)[[1]])
+comp_fcs <- compensate(clean_fcs, spillover(clean_fcs)[[1]])
 ```
 
 ## Transforming parameter values
@@ -219,15 +213,15 @@ fsApply(fs, dim)
 ## Cleaning, compensating, and transforming a flowSet
 The `flowCut()` function only accepts one flowFrame at a time as an argument. But we can apply the `flowCut()` function to every flowFrame in our flowSet using `fsApply()`. 
 
-The code below passes each flowFrame to the flowCut algorithm and returns the cleaned flowFrame. The resulting cut_fs object is, conveniently, a new flowSet containing the cleaned flowFrames.
+The code below passes each flowFrame to the flowCut algorithm and returns the cleaned flowFrame. The resulting clean_fs object is, conveniently, a new flowSet containing the cleaned flowFrames.
 
 > REMEMBER: We can define a function we're not going to use again on the fly. This is called an *anonymous function*.
 
 ```{r}
-cut_fs <- fsApply(fs, function(x) {
+clean_fs <- fsApply(fs, function(x) {
     flow_cut_res <- flowCut(x)
     flow_cut_res$frame
-})
+    })
 ```
 
 To compensate, we need to extract the spillover matrix from one of the files, and use the `compensate()` function to compensate the whole flowSet at once.
@@ -235,9 +229,9 @@ To compensate, we need to extract the spillover matrix from one of the files, an
 > NOTE: It's good practice to check all the files have the same spillover matrix but we won't do that here.
 
 ```{r comp_fs}
-comp_matrix <- spillover(cut_fs[[1]])[[1]]
+comp_matrix <- spillover(clean_fs[[1]])[[1]]
 
-comp_fs <- compensate(cut_fs, comp_matrix)
+comp_fs <- compensate(clean_fs, comp_matrix)
 ```
 
 To transform, we first need to define our columns and our transform object as before. We can then apply the `transform()` function to the whole flowSet at once.
